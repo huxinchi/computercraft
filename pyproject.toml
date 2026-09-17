@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+requires-python = ">=3.8"
+name = "CC-Tweaked"
+version = "0.5.0"
+description = "Pythonization of ComputerCraft Minecraft mod. Write Python instead Lua!"
+readme = "README.md"
+authors = [{name="huxinchi",email="hxc224@hotmail.com"}]
+license = "MIT"
+license-files = ["LICENSE.txt","computercraft/origin-license/LICENSE.txt"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Games/Entertainment",
+]
+keywords = [
+    "computercraft",
+    "minecraft",
+    "cc:tweaked",
+]
+dependencies = [
+    "aiohttp",
+    "greenlet",
+]
+
+[project.urls]
+Repository = "https://github.com/huxinchi/computercraft"
+
+[project.scripts]
+computercraft = "computercraft.server:main"
+
+[tool.setuptools]
+packages = [
+    "computercraft",
+    "computercraft.cc",
+    "computercraft.cc_cc",
+    "computercraft.cc_cc_image",
+    "computercraft.cc_cc_audio",
+    "computercraft.cc_cc_shell",
+    "computercraft.cc_peripherals",
+]
+
+[tool.setuptools.package-data]
+computercraft = ["back.lua"]
