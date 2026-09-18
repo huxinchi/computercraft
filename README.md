@@ -13,3 +13,5 @@
 py侧事件队列也加入了lua一样的限制
 运行的py文件的__name__是__main__了
 支持--pyside参数运行py侧文件
+解决了嵌套table的情况
+在不可用pyobj时不允许使用
