@@ -40,7 +40,7 @@ else
 end
 _py.genv.temp = _py.temp
 _py.genv._m = _py.modules
-_py.genv._py = _py
+_py.genv.__py__ = _py
 if type(loadstring) == 'function' then
     -- 5.1: prefer loadstring
     function _py.loadstring(source)

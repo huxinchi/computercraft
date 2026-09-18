@@ -36,7 +36,7 @@ def serialize(
         return serialize(str(v).encode('ascii'), encoding, session,
                          nopyobj, _ctx)
     if isinstance(v, str):
-        return serialize(v.encode(encoding), encoding, session,
+        return serialize(v.encode(encoding,errors='replace'), encoding, session,
                          nopyobj, _ctx)
     if isinstance(v, (list, tuple)):
         vid = id(v)

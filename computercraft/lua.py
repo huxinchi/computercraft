@@ -114,7 +114,7 @@ class _LuaRefMixin:
             if get_current_greenlet() is sess._server_greenlet:
                 return '{}({})'.format(type(self).__name__, self._fid)
             return eval_lua(
-                b'return tostring(_py.luaobjs[...])', self._fid,
+                b'return tostring(__py__.luaobjs[...])', self._fid,
             ).take_decoded()
         except Exception:
             return '{}({})'.format(type(self).__name__, self._fid)
@@ -163,7 +163,7 @@ class LuaFunction(_LuaRefMixin):
         from .sess import eval_lua
         rp = eval_lua(
             b'return(function(n,...)'
-            b'local f = _py.luaobjs[n] '
+            b'local f = __py__.luaobjs[n] '
             b'if f == nil then error("stale function ref") end '
             b'return f(...) end)(...)',
             self._fid, *args,
@@ -173,19 +173,19 @@ class LuaThread(_LuaRefMixin):
     __slots__ = ()
 _OBJ_GET = (
     b'return(function(n,k) '
-    b'local o = _py.luaobjs[n] '
+    b'local o = __py__.luaobjs[n] '
     b'if o == nil then error("stale lua object ref") end '
     b'return o[k] end)(...)'
 )
 _OBJ_SET = (
     b'return(function(n,k,v) '
-    b'local o = _py.luaobjs[n] '
+    b'local o = __py__.luaobjs[n] '
     b'if o == nil then error("stale lua object ref") end '
     b'o[k] = v end)(...)'
 )
 _OBJ_CALL = (
     b'return(function(n,...) '
-    b'local o = _py.luaobjs[n] '
+    b'local o = __py__.luaobjs[n] '
     b'if o == nil then error("stale lua object ref") end '
     b'return o(...) end)(...)'
 )
@@ -225,7 +225,7 @@ class LuaObject(_LuaRefMixin):
         from .sess import eval_lua
         return _collect(eval_lua(
             b'return(function(n,o) '
-            b'local a = _py.luaobjs[n] '
+            b'local a = __py__.luaobjs[n] '
             b'if a == nil then error("stale lua object ref") end '
             b'return a ' + op + b' o end)(...)',
             self._fid, other,
@@ -235,7 +235,7 @@ class LuaObject(_LuaRefMixin):
         from .sess import eval_lua
         return _collect(eval_lua(
             b'return(function(n) '
-            b'local a = _py.luaobjs[n] '
+            b'local a = __py__.luaobjs[n] '
             b'if a == nil then error("stale lua object ref") end '
             b'return ' + op + b'a end)(...)',
             self._fid,
