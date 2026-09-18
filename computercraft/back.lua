@@ -14,6 +14,7 @@ local _py = {
     waiting_py = {},
     next_pycall_id = 1,
     pyfunc_reverse = {},
+    pyside=false
 }
 log=fs.open("log.log","w")
 if log == nil then 
@@ -133,11 +134,28 @@ elseif type(os) == 'table' and type(os.pullEvent) == 'function' then
 else
     error('E002: Can\'t detect pullEvent method')
 end
-
 if type(arg) == 'table' then
-    _py.argv = arg  -- includes program name
+    _py.argv = arg
 else
     _py.argv = {...}
+end
+
+-- 移除 --pyside 并紧凑化 argv（去掉 index 空洞）
+do
+    local new_argv = {}
+    new_argv[0] = _py.argv[0]
+    local n = 1
+    local i = 1
+    while _py.argv[i] ~= nil do
+        if _py.argv[i] == '--pyside' then
+            _py.pyside = true
+        else
+            new_argv[n] = _py.argv[i]
+            n = n + 1
+        end
+        i = i + 1
+    end
+    _py.argv = new_argv
 end
 
 do
@@ -425,11 +443,11 @@ end
 _py.start_connection()
 do
     local path, code = nil, nil
-    if _py.argv[1] ~= nil then
+    if _py.argv[1] ~= nil and not _py.pyside then
         path, code = _py.start_program(_py.argv[1])
         if path == nil then error('Program not found') end
     end
-    _py.ws_send('0',_py.password, _py.proto_version, _py.argv, path, code)
+    _py.ws_send('0',_py.password, _py.proto_version,_py.pyside ,_py.argv, path, code)
 end
 while true do
     local event, p1, p2, p3, p4, p5 = _py.pullEvent()

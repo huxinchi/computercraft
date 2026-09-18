@@ -37,7 +37,7 @@ def protocol(send, sess_cls=sess.CCSession):
             ' redownload py'
         ).format(PROTO_VERSION, version), 'ascii'))
         return
-
+    pyside=next(msg)
     # CC:T starts its "args" with 0, includes program name
     # but {...} works normally, starting from 1
     args = next(msg)
@@ -48,6 +48,24 @@ def protocol(send, sess_cls=sess.CCSession):
         code = next(msg)
     except StopIteration:
         pass
+    if pyside:
+        # pyside：从 Python 本地读文件
+        # args[0] 是 CC:T 的程序名（back），args[1] 是用户程序名
+        if len(args) < 2:
+            send(b'C' + ser.serialize(b'pyside: no program name', 'ascii'))
+            return
+        prog_name = args[1]
+        try:
+            with open(prog_name, 'r', encoding='utf-8') as f:
+                code = f.read()
+        except OSError as e:
+            send(b'C' + ser.serialize(
+                'pyside: {}'.format(e).encode('ascii'), 'ascii',
+            ))
+            return
+        path = prog_name
+
+
     sess = sess_cls(send)
     if code is not None:
         sess.run_program(args, path, code)

@@ -1,6 +1,4 @@
 from typing import Dict, List, Optional
-
-from ..lua import LuaExpr, LuaFunction
 from ..sess import eval_lua
 
 
@@ -15,16 +13,10 @@ __all__ = (
 )
 
 
-def setCompletionFunction(program: str, complete:LuaFunction) -> None:
-    """Set the completion function for a program.
-
-    :param program: Program path (e.g. ``'/rom/programs/edit'``).
-    :param complete: A LuaFunction that evaluates to a
-        Lua function.
-    """
-    if not isinstance(complete, (LuaFunction)):
+def setCompletionFunction(program: str, complete) -> None:
+    if not callable(complete):
         raise TypeError(
-            'complete must be LuaFunction, got {}'.format(
+            'complete must be callable, got {}'.format(
                 type(complete).__name__,
             )
         )
@@ -92,11 +84,11 @@ def getRunningProgram() -> str:
 
 
 def run(command: str, *args: str) -> bool:
-    return eval_lua(b'G:shell:M:run', command, *args).take_bool()
+    return eval_lua(b'G:shell:M:run', command, *args,nopyobj="shell.run").take_bool()
 
 
 def execute(command: str, *args: str) -> bool:
-    return eval_lua(b'G:shell:M:execute', command, *args).take_bool()
+    return eval_lua(b'G:shell:M:execute', command, *args,nopyobj="shell.execute").take_bool()
 
 
 def openTab(command: str, *args: str) -> int:

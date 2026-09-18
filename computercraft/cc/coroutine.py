@@ -54,8 +54,6 @@ def wrap(func):
 def resume(co, *args):
     """恢复 co，返回 Lua 侧所有返回值。
 
-    `coroutine.resume` 本身返回 (success, ...)，第一个值是 bool，
-    正好被 eval_lua 的 check_bool_error 消费。失败时抛 LuaException。
     """
     rp = eval_lua(b'return coroutine.resume(...)', co, *args)
     values = []

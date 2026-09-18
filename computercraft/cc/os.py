@@ -51,7 +51,7 @@ def setComputerLabel(label: Optional[str]) -> None:
 
 
 def run(environment: dict, programPath: str, *args: str) -> bool:
-    return eval_lua(b'G:os:M:run', environment, programPath, *args).take_bool()
+    return eval_lua(b'G:os:M:run', environment, programPath, *args,nopyobj="os.run").take_bool()
 
 
 def captureEvent(event: Optional[str] = None, maxlen: Optional[int] = None):

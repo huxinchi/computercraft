@@ -272,14 +272,14 @@ def patch_std_files():
     finally:
         sys.stdin, sys.stdout, sys.stderr = pin, pout, perr
 
-def eval_lua(lua_code, *params, immediate=False):
+def eval_lua(lua_code, *params, immediate=False,nopyobj=None):
     sess = get_current_session()
     sess._flush_pending_luaobjs()
     assert isinstance(lua_code, bytes)
     request = (
         (b'I' if immediate else b'T')
-        + ser.serialize(lua_code, sess._enc, session=sess)
-        + ser.serialize(params, sess._enc, session=sess)
+        + ser.serialize(lua_code, sess._enc, session=sess,nopyobj=nopyobj)
+        + ser.serialize(params, sess._enc, session=sess,nopyobj=nopyobj)
     )
     result = sess._server_greenlet.switch(request)
     rp = rproc.ResultProc(ser.deserialize(result), sess._enc)
@@ -401,10 +401,10 @@ class CCGreenlet:
                 task[0:1] + ser.serialize(x._task_id, 'ascii') + task[1:])
 
         if self._g.dead:
-            if self._parent is None:
-                self._on_death(True)
-            else:
-                self._on_death()
+           if self is self._sess._program_greenlet:
+               self._on_death(True)
+           else:
+               self._on_death()
 
     def throw(self, exc):
         self._g.throw(exc)
@@ -582,9 +582,7 @@ class CCSession:
 
     def release_pyobj(self, fid):
         self._pyfuncs.pop(fid, None)
-
     def on_pyobj_call(self, call_id, fid, op, args):
-        """Lua 请求操作 Python 对象/函数。必须在 _server_greenlet 里。"""
         obj = self._pyfuncs.get(fid)
         if obj is None:
             self._reply_pyobj(call_id, False, 'stale python object ref')
@@ -593,12 +591,16 @@ class CCSession:
         if fn is None:
             self._reply_pyobj(call_id, False, 'unsupported op: ' + op)
             return
-        try:
-            result = fn(obj, args)
-        except Exception as e:
-            self._reply_pyobj(call_id, False, str(e))
-            return
-        self._reply_pyobj(call_id, True, result)
+
+        def _runner():
+            try:
+                result = fn(obj, args)
+            except Exception as e:
+                self._reply_pyobj(call_id, False, str(e))
+                return
+            self._reply_pyobj(call_id, True, result)
+
+        CCGreenlet(_runner, sess=self).switch()
 
 
     def _reply_pyobj(self, call_id, ok, result):

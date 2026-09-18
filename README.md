@@ -1,1 +1,15 @@
 改自https://github.com/neumond/python-computer-craft
+删除了oc支持
+支持了新版本cc:t
+加入了传输日志
+支持了.和_方法/模块名
+新增了lua函数,线程,metatable,userdata的序列化传输
+新增了pyfunc,pyobject的传输(因为无法在gc时删除py侧的对应内容，会内存泄露，不建议过度使用)
+加入了连接密码校验
+支持了自定义导入路由
+补全和更新了cc库和外设
+支持手动注册通用外设
+支持了无参pullevent
+py侧事件队列也加入了lua一样的限制
+运行的py文件的__name__是__main__了
+支持--pyside参数运行py侧文件

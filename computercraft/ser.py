@@ -23,7 +23,7 @@ def cc_dirty_encode(s: str) -> bytes:
     return s.encode(_CC_ENC, errors='replace')
 
 
-def serialize(v, encoding, session=None):
+def serialize(v, encoding, session=None,nopyobj=None):
     if v is None:
         return b'N'
     if v is False:
@@ -42,15 +42,15 @@ def serialize(v, encoding, session=None):
         items = []
         for k, x in enumerate(v, start=1):
             items.append(
-                b':' + serialize(k, encoding, session)
-                + serialize(x, encoding, session))
+                b':' + serialize(k, encoding, session,nopyobj=nopyobj)
+                + serialize(x, encoding, session,nopyobj=nopyobj))
         return b'{' + b''.join(items) + b'}'
     if isinstance(v, dict):
         items = []
         for k, x in v.items():
             items.append(
-                b':' + serialize(k, encoding, session)
-                + serialize(x, encoding, session))
+                b':' + serialize(k, encoding, session,nopyobj=nopyobj)
+                + serialize(x, encoding, session,nopyobj=nopyobj))
         return b'{' + b''.join(items) + b'}'
     if isinstance(v, lua.LuaFunction):
         return b'K[' + str(v._fid).encode('ascii') + b']'
@@ -63,7 +63,10 @@ def serialize(v, encoding, session=None):
         return 'E{}>'.format(len(code)).encode('ascii') + code
     if isinstance(v, lua.TempObject):
         return 'X{}>'.format(len(v._fid)).encode('ascii') + v._fid
-
+    if nopyobj is not None:
+        raise TypeError(
+            "{}: Python callable/object not allowed here".format(nopyobj)
+        )
     if session is None:
         from .sess import get_current_session
         session = get_current_session()

@@ -24,7 +24,7 @@ def getCount() -> int:
 
 def launch(environment: dict, programPath: str, *args: str) -> int:
     return eval_lua(
-        b'G:multishell:M:launch', environment, programPath, *args,
+        b'G:multishell:M:launch', environment, programPath, *args,nopyobj="multishell.launch"
     ).take_int()
 
 

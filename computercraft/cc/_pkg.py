@@ -4,7 +4,7 @@ from typing import Any, List, Optional
 
 from .. import ser
 from ..errors import LuaException
-from ..lua import LuaNum,LuaFunction
+from ..lua import LuaNum,LuaFunction,LuaObject,LuaThread
 from ..sess import eval_lua,register_route, unregister_route, list_routes
 
 __all__ = (
@@ -24,6 +24,8 @@ __all__ = (
     'register_route',
     'unregister_route',
     'list_routes',
+    'LuaObject',
+    'LuaThread',
 )
 
 
