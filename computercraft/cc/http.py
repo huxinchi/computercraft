@@ -1,13 +1,14 @@
 from contextlib import contextmanager
-from typing import Dict, Optional
-
+from typing import Any, Dict, Optional, Tuple, Union
 from ..sess import eval_lua, lua_context_object, ContextObject
 
 
 __all__ = ('request', 'get', 'post', 'checkURL', 'checkURLAsync', 'websocket')
 
 
-def request(url_or_options, body: Optional[str] = None, headers: Optional[dict] = None,
+def request(url_or_options: Union[str, dict],
+            body: Optional[str] = None,
+            headers: Optional[dict] = None,
             binary: bool = False) -> None:
     """Asynchronously make a HTTP request.
     Events: http_success / http_failure.
@@ -19,7 +20,9 @@ def request(url_or_options, body: Optional[str] = None, headers: Optional[dict] 
     ).take_none()
 
 
-def get(url_or_options, headers: Optional[dict] = None, binary: bool = False):
+def get(url_or_options: Union[str, dict],
+        headers: Optional[dict] = None,
+        binary: bool = False):
     """Make a synchronous HTTP GET request.
     Returns a Response handle, or (nil, err) on failure."""
     if isinstance(url_or_options, dict):
@@ -29,7 +32,9 @@ def get(url_or_options, headers: Optional[dict] = None, binary: bool = False):
     return rp.take()
 
 
-def post(url_or_options, body: Optional[str] = None, headers: Optional[dict] = None,
+def post(url_or_options: Union[str, dict],
+         body: Optional[str] = None,
+         headers: Optional[dict] = None,
          binary: bool = False):
     """Make a synchronous HTTP POST request."""
     if isinstance(url_or_options, dict):
@@ -68,7 +73,7 @@ class WebSocketHandle(ContextObject):
             b'send', message.encode('utf-8') if not binary else message, binary,
         ).take_none()
 
-    def receive(self):
+    def receive(self) -> Optional[Tuple[str, bool]]:
         """Block until a message arrives.
         Returns (message, isBinary) or None if closed."""
         rp = self._call(b'receive')

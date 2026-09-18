@@ -110,7 +110,6 @@ class CCApplication(web.Application):
             except StopIteration:
                 pass
         return ws
-    
     @staticmethod
     def backdoor(request):
         with open(LUA_FILE, 'r') as f:

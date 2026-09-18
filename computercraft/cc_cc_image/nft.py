@@ -1,5 +1,5 @@
 # cc/image/nft.py
-from typing import Optional
+from typing import Optional,TYPE_CHECKING
 from ..sess import eval_lua
 
 __all__ = ('parse', 'load', 'draw')
@@ -28,9 +28,14 @@ return img
     return rp.take_dict()
 
 
-def draw(image: dict, xPos: int, yPos: int, target=None) -> None:
-    """Draw an nft image. target is a term.Redirect."""
-    return eval_lua(b'''
-local m = require("cc.image.nft")
-return m.draw(...)
-''', image, xPos, yPos, target).take_none()
+
+
+if TYPE_CHECKING:
+    from ..cc.term import TermTarget
+
+
+def draw(
+    image: dict, xPos: int, yPos: int,
+    target: Optional['TermTarget'] = None,
+) -> None:
+    ...

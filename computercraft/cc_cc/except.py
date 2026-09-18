@@ -1,25 +1,35 @@
 # cc/expect.py
 from ..sess import eval_lua
-from typing import Optional
+
 
 __all__ = ('expect', 'field', 'range')
 
 
-def expect(index: int, value, *types: str):
+from typing import Dict, TypeVar, Optional
+
+T = TypeVar('T')
+
+
+def expect(index: int, value: T, *types: str) -> T:
     """Expect value to be one of the given Lua types.
-    Returns value on success, raises LuaException on failure."""
+
+    Returns value unchanged on success; raises LuaException on failure.
+    """
     return eval_lua(b'''
 local m = require("cc.expect")
 return m.expect(...)
 ''', index, value, *types).take()
 
 
-def field(tbl: dict, index: str, *types: str):
+def field(tbl: Dict[str, T], index: str, *types: str) -> T:
     """Expect tbl[index] to be one of the given types."""
     return eval_lua(b'''
 local m = require("cc.expect")
 return m.field(...)
 ''', tbl, index, *types).take()
+
+
+
 
 
 def range(num: float, min: Optional[float] = None, max: Optional[float] = None) -> float:

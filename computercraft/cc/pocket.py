@@ -7,9 +7,9 @@ __all__ = (
 )
 
 
-def equipBack():
+def equipBack()->None:
     return eval_lua(b'G:pocket:M:equipBack').check_bool_error()
 
 
-def unequipBack():
+def unequipBack()->None:
     return eval_lua(b'G:pocket:M:unequipBack').check_bool_error()

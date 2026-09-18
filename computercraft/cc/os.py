@@ -1,10 +1,8 @@
-from typing import Optional,cast
+from typing import Optional,cast,Any, Iterator
 
 from ..lua import LuaNum
 from ..sess import eval_lua
 from ..sess import get_current_greenlet,CCGreenlet
-
-
 __all__ = (
     'loadAPI', 'unloadAPI',
     'version', 'getComputerID', 'getComputerLabel',
@@ -54,7 +52,7 @@ def run(environment: dict, programPath: str, *args: str) -> bool:
     return eval_lua(b'G:os:M:run', environment, programPath, *args,nopyobj="os.run").take_bool()
 
 
-def captureEvent(event: Optional[str] = None, maxlen: Optional[int] = None):
+def captureEvent(event: Optional[str] = None, maxlen: Optional[int] = None)->Iterator[Any]:
     """Iterate over CC events.
 
     :param event: Event name to subscribe to. If ``None``, subscribe to

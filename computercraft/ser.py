@@ -1,4 +1,4 @@
-from typing import Any, Tuple
+from typing import Any, Tuple,Optional
 from uuid import UUID
 from . import lua
 __all__ = (
@@ -13,7 +13,13 @@ assert [bytes([i]) for i in range(256)] == [
     chr(i).encode(_CC_ENC) for i in range(256)]
 def cc_dirty_encode(s: str) -> bytes:
     return s.encode(_CC_ENC, errors='replace')
-def serialize(v, encoding, session=None, nopyobj=None, _ctx=None):
+def serialize(
+    v,
+    encoding: str,
+    session=None,
+    nopyobj: Optional[str] = None,
+    _ctx=None,
+) -> bytes:
     if _ctx is None:
         _ctx = {'ids': {}, 'next': 1}
     if v is None:
@@ -147,7 +153,7 @@ def _deserialize(b: bytes, _idx: int, _ctx=None):
     elif tok == 123:  # {
         ref = _ctx['next']
         _ctx['next'] = ref + 1
-        r = {}
+        r:dict = {}
         _ctx['building'][ref] = r
         while True:
             tok = b[_idx]

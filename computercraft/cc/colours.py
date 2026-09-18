@@ -1,6 +1,5 @@
 # cc/colours.py
-from typing import List
-
+from typing import List,Dict, Iterator, Tuple
 from ..sess import eval_lua
 
 
@@ -50,7 +49,7 @@ def packRGB(r: float, g: float, b: float) -> int:
     return eval_lua(b'G:colours:M:packRGB', r, g, b).take_int()
 
 
-def unpackRGB(rgb: int) -> tuple:
+def unpackRGB(rgb: int) -> Tuple[float, float, float]:
     rp = eval_lua(b'G:colours:M:unpackRGB', rgb)
     return tuple(rp.take_number() for _ in range(3))
 
@@ -76,6 +75,6 @@ chars = {
 }
 
 
-def iter_colors():
+def iter_colors() -> Iterator[int]:
     for c in chars.values():
         yield c

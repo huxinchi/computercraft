@@ -127,7 +127,7 @@ class _LuaRefMixin:
 class LuaFunction(_LuaRefMixin):
     __slots__ = ()
     @classmethod
-    def from_code(cls, code):
+    def from_code(cls, code: Union[str, bytes]) -> 'LuaFunction':
         """用一段 Lua 源码构造 LuaFunction。
         code 必须是一个**表达式**，求值结果是一个函数。例如：
             fn = LuaFunction.from_code('function(x) return x * 2 end')

@@ -7,5 +7,5 @@ __all__ = ('WorkbenchPeripheral', )
 class WorkbenchPeripheral(BasePeripheral):
     TYPE = 'workbench'
 
-    def craft(self, quantity: int = 64):
+    def craft(self, quantity: int = 64)->None:
         return self._call(b'craft', quantity).check_bool_error()

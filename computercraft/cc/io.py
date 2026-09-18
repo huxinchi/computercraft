@@ -1,8 +1,5 @@
-from typing import Optional
-
 from ..sess import eval_lua
-
-
+from typing import Optional
 __all__ = ('read', 'write', 'lines', 'open', 'close', 'flush', 'input', 'output')
 
 

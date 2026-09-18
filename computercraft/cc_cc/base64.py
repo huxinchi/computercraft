@@ -14,7 +14,7 @@ return m.encode(...)
 ''', data, alt_chars).take_string()
 
 
-def decode(data: str, alt_chars: Optional[str] = None):
+def decode(data: str, alt_chars: Optional[str] = None)->str:
     """Decode Base64. Returns str, or raises LuaException on invalid input."""
     return eval_lua(b'''
 local m = require("cc.base64")

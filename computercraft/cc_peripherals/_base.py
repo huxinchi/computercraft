@@ -15,7 +15,7 @@ class BasePeripheral(LuaExpr):
     def __str__(self):
         return '<Peripheral {} {}>'.format(self.TYPE, self._side)
 
-    def _call(self, method, *args):
+    def _call(self, method:bytes, *args):
         return eval_lua(b'G:peripheral:M:call', self._side, method, *args)
 
     def get_expr_code(self):

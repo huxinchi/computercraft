@@ -94,7 +94,7 @@ function _py.loadmethod(code)
         if rmod == nil then break end
         if _py.modules[rmod] == nil then
             local r, v = pcall(require, rmod)
-            if not r then return nil, 'module not found' end
+            if not r then return nil, tostring(v) end
             _py.modules[rmod] = v
         end
         mod, code = _py.modules[rmod], mcode

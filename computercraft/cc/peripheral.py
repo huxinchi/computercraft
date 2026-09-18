@@ -1,5 +1,5 @@
 import inspect
-from typing import Any, Dict, List, Optional, Type, TypeVar
+from typing import Any, Dict, List, Optional, Type, TypeVar,Union
 
 from ..lua import LuaObject
 from ..sess import eval_lua
@@ -60,8 +60,7 @@ def getNames() -> List[str]:
 
 
 
-
-def wrap(side: str):
+def wrap(side: str) -> Optional[Union[BasePeripheral, LuaObject]]:
     """Wrap the peripheral on the given side.
 
     - Known type: returns the registered Python peripheral class.

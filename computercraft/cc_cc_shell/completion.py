@@ -4,7 +4,10 @@ from ..sess import eval_lua
 __all__ = ('build_and_set',)
 
 
-def build_and_set(program_path: str, *arg_specs):
+from typing import Dict, Any
+
+
+def build_and_set(program_path: str, *arg_specs: Dict[str, Any]):
     """在 Lua 侧构建 completion 并注册到 shell。
 
     arg_specs 每个元素是一个 dict，格式：

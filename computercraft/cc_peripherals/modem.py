@@ -1,8 +1,7 @@
 from dataclasses import dataclass
-from typing import Any, List, Optional,TYPE_CHECKING
-
+from typing import Any, List, Optional,TYPE_CHECKING,Optional, Union
 from .. import ser
-from ..lua import LuaNum
+from ..lua import LuaNum,LuaObject
 from ._base import BasePeripheral
 
 
@@ -80,8 +79,11 @@ class WiredModemPeripheral(BasePeripheral, ModemMixin):
     def isPresentRemote(self, peripheralName: str) -> bool:
         return self._call(b'isPresentRemote', peripheralName).take_bool()
 
-    def wrapRemote(self, peripheralName: str) -> Optional[BasePeripheral]:
-        # use instead getMethodsRemote and callRemote
+
+
+    def wrapRemote(
+        self, peripheralName: str,
+    ) -> Optional[Union[BasePeripheral, LuaObject]]:
         from ..cc.peripheral import wrap
         return wrap(peripheralName)
     def getNameRemote(self, peripheralName: str) -> Optional[str]:

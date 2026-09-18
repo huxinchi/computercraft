@@ -13,5 +13,5 @@ class CommandPeripheral(BasePeripheral):
     def setCommand(self, command: str) -> None:
         return self._call(b'setCommand', command).take_none()
 
-    def runCommand(self):
+    def runCommand(self)->None:
         return self._call(b'runCommand').check_bool_error()

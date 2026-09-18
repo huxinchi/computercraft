@@ -7,8 +7,11 @@ __all__ = (
 )
 
 
-def waitForAny(*task_fns):
-    pgl = get_current_greenlet().cc_greenlet
+from typing import Any, Callable,cast
+
+def waitForAny(*task_fns: Callable[[], Any]) -> None: 
+
+    pgl= cast(CCGreenlet, getattr(get_current_greenlet(), 'cc_greenlet'))
     sess = pgl._sess
 
     for fn in task_fns:
@@ -20,8 +23,8 @@ def waitForAny(*task_fns):
         pgl.detach_children()
 
 
-def waitForAll(*task_fns):
-    pgl = get_current_greenlet().cc_greenlet
+def waitForAll(*task_fns: Callable[[], Any]) -> None:     
+    pgl= cast(CCGreenlet, getattr(get_current_greenlet(), 'cc_greenlet'))
     sess = pgl._sess
 
     for fn in task_fns:

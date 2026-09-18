@@ -1,6 +1,6 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional,Callable, Union
 from ..sess import eval_lua
-
+from ..lua import LuaFunction
 
 __all__ = (
     'exit', 'dir', 'setDir', 'path', 'setPath',
@@ -13,7 +13,12 @@ __all__ = (
 )
 
 
-def setCompletionFunction(program: str, complete) -> None:
+
+
+def setCompletionFunction(
+    program: str,
+    complete: Union[LuaFunction, Callable],
+) -> None: 
     if not callable(complete):
         raise TypeError(
             'complete must be callable, got {}'.format(

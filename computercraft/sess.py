@@ -14,6 +14,8 @@ from traceback import format_exc
 from types import ModuleType
 from greenlet import greenlet, getcurrent as get_current_greenlet
 from . import rproc, ser, lua
+from typing import Optional,cast
+
 __all__ = (
     'CCSession',
     'get_current_session',
@@ -32,9 +34,9 @@ def base36(n: int) -> bytes:
     return bytes(r)
 def _is_global_greenlet():
     return not hasattr(get_current_greenlet(), 'cc_greenlet')
-def get_current_session():
+def get_current_session() -> 'CCSession':
     try:
-        return get_current_greenlet().cc_greenlet._sess
+        return cast(CCGreenlet, getattr(get_current_greenlet(), 'cc_greenlet'))._sess
     except AttributeError:
         raise RuntimeError('Computercraft function was called outside context')
 class StdFileProxy:
@@ -99,7 +101,7 @@ def register_route(virtual: str, real: str) -> None:
     _EXTRA_ROUTES.setdefault(virtual.rstrip('.'), []).append(
         real.rstrip('.'),
     )
-def unregister_route(virtual: str, real: str = None) -> None:
+def unregister_route(virtual: str, real: Optional[str] = None) -> None:
     virtual = virtual.rstrip('.')
     if real is None:
         _EXTRA_ROUTES.pop(virtual, None)
@@ -228,7 +230,12 @@ def release_pyfunc(fn):
         for fid in fids:
             sess._pyfuncs.pop(fid, None)
             sess._pending_pyfunc_free.add(fid)
-def eval_lua(lua_code, *params, immediate=False,nopyobj=None):
+def eval_lua(
+    lua_code: bytes,
+    *params,
+    immediate: bool = False,
+    nopyobj: Optional[str] = None,
+) -> rproc.ResultProc:
     sess = get_current_session()
     sess._flush_pending_refs()
     assert isinstance(lua_code, bytes)
@@ -376,7 +383,6 @@ class CCEventRouter:
         if event in self._stacks:
             dispatched = True
             for task_id, queue in self._stacks[event].items():
-                
                 queue.append(params)
                 if self._active.get(task_id) == event:
                     self._set_task_status(task_id, event, False)
@@ -385,8 +391,6 @@ class CCEventRouter:
         if '*' in self._stacks:
             dispatched = True
             for task_id, queue in self._stacks['*'].items():
-                
-                   
                 queue.append((event, params))
                 if self._active.get(task_id) == '*':
                     self._set_task_status(task_id, '*', False)

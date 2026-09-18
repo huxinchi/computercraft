@@ -1,11 +1,9 @@
 # computercraft/cc/coroutine.py
-from typing import Any, List
+from typing import Any, List,Union
 
 from ..errors import LuaException
 from ..lua import LuaFunction, LuaThread
 from ..sess import eval_lua
-
-
 __all__ = (
     'create',
     'resume',
@@ -17,11 +15,11 @@ __all__ = (
 )
 
 
-def create(func):
+def create(func: LuaFunction) -> LuaThread:
     return eval_lua(b'return coroutine.create(...)', func).take_decoded()
 
 
-def status(co):
+def status(co: LuaThread) -> str:
     return eval_lua(b'return coroutine.status(...)', co).take_decoded()
 
 
@@ -43,15 +41,15 @@ def running():
     return co, is_main
 
 
-def isyieldable():
+def isyieldable() -> bool:
     return eval_lua(b'return coroutine.isyieldable()').take_decoded()
 
 
-def wrap(func):
+def wrap(func: LuaFunction) -> LuaFunction:
     return eval_lua(b'return coroutine.wrap(...)', func).take_decoded()
 
 
-def resume(co, *args):
+def resume(co: LuaThread, *args: Any) -> List[Any]:
     """恢复 co，返回 Lua 侧所有返回值。
 
     """
