@@ -1,10 +1,7 @@
 from typing import Union
-
-
 LuaTable = Union[list, dict]
 LuaNum = Union[int, float]
 import types
-
 DUNDER_TO_MT = {
     '__call__':    '__call',
     '__str__':     '__tostring',
@@ -26,7 +23,6 @@ DUNDER_TO_MT = {
     '__rshift__':  '__shr',
     '__invert__':  '__bnot',
 }
-
 _FUNCTION_TYPES = (
     types.FunctionType,
     types.LambdaType,
@@ -34,31 +30,21 @@ _FUNCTION_TYPES = (
     types.MethodType,
     types.BuiltinMethodType,
 )
-
-
 def is_function(v):
     return isinstance(v, _FUNCTION_TYPES)
-
-
 def _make_handler(obj, dunder):
     method = getattr(obj, dunder)
     def handler(_, *args):
         return method(*args)
     return handler
-
-
 def _getattr_handler(obj):
     def handler(_, k):
         return getattr(obj, k, None)
     return handler
-
-
 def _setattr_handler(obj):
     def handler(_, k, v):
         setattr(obj, k, v)
     return handler
-
-
 def _has_dunder(t, name):
     """t 是否"自己"定义了 dunder（不含 object 的默认实现）。"""
     for klass in t.__mro__:
@@ -67,8 +53,6 @@ def _has_dunder(t, name):
         if name in klass.__dict__:
             return True
     return False
-
-
 def make_mt_spec(obj):
     t = type(obj)
     mt = {
@@ -79,7 +63,6 @@ def make_mt_spec(obj):
         if _has_dunder(t, dunder):
             mt[mt_key] = _make_handler(obj, dunder)
     return mt
-
 def _collect(rp):
     values = []
     while not rp.isend():
@@ -89,26 +72,18 @@ def _collect(rp):
     if len(values) == 1:
         return values[0]
     return tuple(values)
-
-
 class LuaExpr:
     def get_expr_code(self):
         raise NotImplementedError
-
-
 class TempObject:
     def __init__(self, fid: bytes):
         self._fid = fid
-
-
 class _LuaRefMixin:
     __slots__ = ('_fid', '_closed', '_str_cache')
-
     def __init__(self, fid: int):
         self._fid = fid
         self._closed = False
         self._str_cache = None
-
     def close(self):
         if self._closed:
             return
@@ -119,19 +94,15 @@ class _LuaRefMixin:
         except Exception:
             return
         sess._pending_luaobj_free.add(self._fid)
-
     def __del__(self):
         try:
             self.close()
         except Exception:
             pass
-
     def __enter__(self):
         return self
-
     def __exit__(self, *exc):
         self.close()
-
     def _fetch_str(self):
         if self._closed:
             return '{}(closed)'.format(type(self).__name__)
@@ -147,33 +118,25 @@ class _LuaRefMixin:
             ).take_decoded()
         except Exception:
             return '{}({})'.format(type(self).__name__, self._fid)
-
     def __repr__(self):
         return '{}({})'.format(type(self).__name__, self._fid)
-
     def __str__(self):
         if self._str_cache is None:
             self._str_cache = self._fetch_str()
         return self._str_cache
-
 class LuaFunction(_LuaRefMixin):
     __slots__ = ()
     @classmethod
     def from_code(cls, code):
         """用一段 Lua 源码构造 LuaFunction。
-
         code 必须是一个**表达式**，求值结果是一个函数。例如：
-
             fn = LuaFunction.from_code('function(x) return x * 2 end')
             fn(21)   # 42
-
             fn = LuaFunction.from_code('''
                 function(text, index)
                     return {"apple", "banana", "cherry"}
                 end
             ''')
-
-
         """
         if isinstance(code, str):
             code_bytes = code.encode('utf-8')
@@ -185,10 +148,8 @@ class LuaFunction(_LuaRefMixin):
                     type(code).__name__,
                 )
             )
-
         from .sess import eval_lua
         result = eval_lua(b'return ' + code_bytes).take_decoded()
-
         if not isinstance(result, cls):
             raise TypeError(
                 'code did not evaluate to a function, got {}'.format(
@@ -208,41 +169,31 @@ class LuaFunction(_LuaRefMixin):
             self._fid, *args,
         )
         return _collect(rp)
-
-
 class LuaThread(_LuaRefMixin):
     __slots__ = ()
-
-
 _OBJ_GET = (
     b'return(function(n,k) '
     b'local o = _py.luaobjs[n] '
     b'if o == nil then error("stale lua object ref") end '
     b'return o[k] end)(...)'
 )
-
 _OBJ_SET = (
     b'return(function(n,k,v) '
     b'local o = _py.luaobjs[n] '
     b'if o == nil then error("stale lua object ref") end '
     b'o[k] = v end)(...)'
 )
-
 _OBJ_CALL = (
     b'return(function(n,...) '
     b'local o = _py.luaobjs[n] '
     b'if o == nil then error("stale lua object ref") end '
     b'return o(...) end)(...)'
 )
-
-
 class LuaObject(_LuaRefMixin):
     __slots__ = ()
-
     def _check(self):
         if self._closed:
             raise RuntimeError('LuaObject is closed')
-
     def __getattr__(self, name):
         self._check()
         from .sess import eval_lua
@@ -250,7 +201,6 @@ class LuaObject(_LuaRefMixin):
         if r is None:
             raise AttributeError(name)
         return r
-
     def __setattr__(self, name, value):
         if name in ('_fid', '_closed', '_str_cache'):
             object.__setattr__(self, name, value)
@@ -258,22 +208,18 @@ class LuaObject(_LuaRefMixin):
         self._check()
         from .sess import eval_lua
         eval_lua(_OBJ_SET, self._fid, name, value)
-
     def __getitem__(self, key):
         self._check()
         from .sess import eval_lua
         return _collect(eval_lua(_OBJ_GET, self._fid, key))
-
     def __setitem__(self, key, value):
         self._check()
         from .sess import eval_lua
         eval_lua(_OBJ_SET, self._fid, key, value)
-
     def __call__(self, *args):
         self._check()
         from .sess import eval_lua
         return _collect(eval_lua(_OBJ_CALL, self._fid, *args))
-
     def _binop(self, other, op):
         self._check()
         from .sess import eval_lua
@@ -284,7 +230,6 @@ class LuaObject(_LuaRefMixin):
             b'return a ' + op + b' o end)(...)',
             self._fid, other,
         ))
-
     def _unop(self, op):
         self._check()
         from .sess import eval_lua
@@ -295,7 +240,6 @@ class LuaObject(_LuaRefMixin):
             b'return ' + op + b'a end)(...)',
             self._fid,
         ))
-
     def __add__(self, other): return self._binop(other, b'+')
     def __sub__(self, other): return self._binop(other, b'-')
     def __mul__(self, other): return self._binop(other, b'*')
@@ -307,6 +251,5 @@ class LuaObject(_LuaRefMixin):
     def __le__(self, other): return self._binop(other, b'<=')
     def __neg__(self): return self._unop(b'-')
     def __len__(self): return self._unop(b'#')
-
     def __hash__(self):
         return hash(('LuaObject', self._fid))

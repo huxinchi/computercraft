@@ -1,32 +1,21 @@
 from typing import Any, Tuple
 from uuid import UUID
-
 from . import lua
-
-
 __all__ = (
     '_CC_ENC',
     'cc_dirty_encode',
     'serialize',
     'deserialize',
 )
-
-
 _CC_ENC = 'latin1'
-
 # encoding fast check
 assert [bytes([i]) for i in range(256)] == [
     chr(i).encode(_CC_ENC) for i in range(256)]
-
-
 def cc_dirty_encode(s: str) -> bytes:
     return s.encode(_CC_ENC, errors='replace')
-
-
 def serialize(v, encoding, session=None, nopyobj=None, _ctx=None):
     if _ctx is None:
         _ctx = {'ids': {}, 'next': 1}
-
     if v is None:
         return b'N'
     if v is False:
@@ -43,7 +32,6 @@ def serialize(v, encoding, session=None, nopyobj=None, _ctx=None):
     if isinstance(v, str):
         return serialize(v.encode(encoding), encoding, session,
                          nopyobj, _ctx)
-
     if isinstance(v, (list, tuple)):
         vid = id(v)
         existing = _ctx['ids'].get(vid)
@@ -58,7 +46,6 @@ def serialize(v, encoding, session=None, nopyobj=None, _ctx=None):
                 b':' + serialize(k, encoding, session, nopyobj, _ctx)
                 + serialize(x, encoding, session, nopyobj, _ctx))
         return b'{' + b''.join(items) + b'}'
-
     if isinstance(v, dict):
         vid = id(v)
         existing = _ctx['ids'].get(vid)
@@ -73,7 +60,6 @@ def serialize(v, encoding, session=None, nopyobj=None, _ctx=None):
                 b':' + serialize(k, encoding, session, nopyobj, _ctx)
                 + serialize(x, encoding, session, nopyobj, _ctx))
         return b'{' + b''.join(items) + b'}'
-
     if isinstance(v, lua.LuaFunction):
         return b'K[' + str(v._fid).encode('ascii') + b']'
     if isinstance(v, lua.LuaThread):
@@ -85,16 +71,13 @@ def serialize(v, encoding, session=None, nopyobj=None, _ctx=None):
         return 'E{}>'.format(len(code)).encode('ascii') + code
     if isinstance(v, lua.TempObject):
         return 'X{}>'.format(len(v._fid)).encode('ascii') + v._fid
-
     if nopyobj is not None:
         raise TypeError(
             "{}: Python callable/object not allowed here".format(nopyobj)
         )
-
     if session is None:
         from .sess import get_current_session
         session = get_current_session()
-
     if lua.is_function(v):
         fid = session.register_pyobj(v)
         return b'P[' + str(fid).encode('ascii') + b']'
@@ -103,15 +86,11 @@ def serialize(v, encoding, session=None, nopyobj=None, _ctx=None):
     payload = serialize({b'fid': fid, b'mt': mt},
                         encoding, session, _ctx=_ctx)
     return b'I' + payload
-
-
 def _deserialize(b: bytes, _idx: int, _ctx=None):
     if _ctx is None:
         _ctx = {'building': {}, 'next': 1}
-
     tok = b[_idx]
     _idx += 1
-
     if tok == 78:  # N
         return None, _idx
     elif tok == 75:  # K
@@ -181,12 +160,8 @@ def _deserialize(b: bytes, _idx: int, _ctx=None):
         return r, _idx
     else:
         raise ValueError
-
-
 def deserialize(b: bytes) -> Any:
     return _deserialize(b, 0)[0]
-
-
 def dcmditer(b: bytes):
     yield b[0:1]
     idx = 1

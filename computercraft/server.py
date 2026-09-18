@@ -1,23 +1,16 @@
 import argparse,hmac
 from os.path import join, dirname, abspath
-
 from aiohttp import web, WSMsgType
-
 from . import ser, sess,rproc
 from .rproc import lua_table_to_list
-
-
 THIS_DIR = dirname(abspath(__file__))
 LUA_FILE = join(THIS_DIR, 'back.lua')
 PROTO_VERSION = 5
 PROTO_ERROR = b'C' + ser.serialize(b'protocol error', 'ascii')
-
-
 def protocol(send, sess_cls=sess.CCSession):
     # handle first frame
     msg = yield
     msg = ser.dcmditer(msg)
-
     action = next(msg)
     if action != b'0':
         send(PROTO_ERROR)
@@ -64,14 +57,11 @@ def protocol(send, sess_cls=sess.CCSession):
             ))
             return
         path = prog_name
-
-
     sess = sess_cls(send)
     if code is not None:
         sess.run_program(args, path, code)
     else:
         sess.run_repl()
-
     # handle the rest of frames
     while True:
         msg = yield
@@ -94,13 +84,10 @@ def protocol(send, sess_cls=sess.CCSession):
         else:
             send(PROTO_ERROR)
             return
-
-
 class CCApplication(web.Application):
     async def ws(self, request):
         ws = web.WebSocketResponse()
         await ws.prepare(request)
-
         squeue = []
         pgen = self['protocol_factory'](squeue.append)
         next(pgen)
@@ -112,24 +99,18 @@ class CCApplication(web.Application):
                 pgen.send(msg.data)
             except StopIteration:
                 mustquit = True
-
             for m in squeue:
                 await ws.send_bytes(m)
             squeue.clear()
-
             if mustquit:
                 break
-
         if not mustquit:  # sudden disconnect
             try:
                 pgen.send(b'D')
             except StopIteration:
                 pass
-
         return ws
-
     
-
     @staticmethod
     def backdoor(request):
         with open(LUA_FILE, 'r') as f:
@@ -140,12 +121,9 @@ class CCApplication(web.Application):
             .replace('__url__', 'ws://{}/ws/'.format(webhost))
             .replace('__password__', setpassword)
         ))
-
     def setup_routes(self):
         self.router.add_get('/', self.backdoor)
         self.router.add_get('/ws/', self.ws)
-
-
 def create_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--host', default='0.0.0.0')
@@ -173,16 +151,12 @@ def main():
                 def write_frame(t, m):
                     ln = str(len(m)).encode('ascii')
                     f.write(t + ln + b':' + m + b'\n')
-
                 def send_wrap(m):
                     write_frame(b'S', m)
                     return send(m)
-
                 class SessOverride(sess_cls):
                     _drop_command = sess_cls._sorted_drop_command
-
                 p = protocol(send_wrap, sess_cls=SessOverride)
-
                 def pgen():
                     next(p)
                     while True:
@@ -192,36 +166,26 @@ def main():
                             p.send(m)
                         except StopIteration as e:
                             return e.value
-
                 return pgen()
-
             app['protocol_factory'] = protocol_factory
             yield
     if args.capture is not None:
         sess.python_version = lambda: '<VERSION>'
         app.cleanup_ctx.append(capture)
-
     with sess.patch_std_files():
         web.run_app(app, host=args.host, port=args.port)
-
-
 if __name__ == '__main__':
     main()
-
-
 # TODO: move greenlets into separate thread
 # to prevent hanging
-
 """
 import ctypes
 import time
 import threading
-
 def thmain():
     # hangs
     while True:
         pass
-
 th = threading.Thread(target=thmain)
 th.start()
 time.sleep(5)

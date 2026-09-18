@@ -31,7 +31,6 @@ function checkandwrite(str)
   log.write(str)
   log.flush()
 end
-
 if type(_G) == 'table' then
     _py.genv = _G 
 elseif type(_ENV) == 'table' then
@@ -82,7 +81,6 @@ function _py.handle_coro_result(task_id, r)
         _py.filters[task_id] = flt
     end
 end
-
 function _py.loadmethod(code)
     -- 0..N  R:module:   -- require(module)
     -- 0..1  G:module:   -- use builtin module
@@ -90,7 +88,6 @@ function _py.loadmethod(code)
     --   M:method$   -- take method of loaded module
     --   code$       -- arbitrary code
     if _py.mcache[code] ~= nil then return _py.mcache[code] end
-
     local mod, modname
     while true do
         local _, _, rmod, mcode = string.find(code, '^R:([%a%w_%.]+):(.*)$')
@@ -109,10 +106,8 @@ function _py.loadmethod(code)
             if mod == nil then return nil, 'module not found' end
         end
     end
-
     local fn
     do
-
 local _, _, meth = string.find(code, '^M:([%a%w_%.]+)$')
         if meth ~= nil then
             fn = mod[meth]
@@ -126,7 +121,6 @@ local _, _, meth = string.find(code, '^M:([%a%w_%.]+)$')
     _py.mcache[code] = fn
     return fn
 end
-
 if type(os) == 'table' and type(os.pullEventRaw) == 'function' then
     _py.pullEvent = os.pullEventRaw  -- computercraft, preferrable
 elseif type(os) == 'table' and type(os.pullEvent) == 'function' then
@@ -139,7 +133,6 @@ if type(arg) == 'table' then
 else
     _py.argv = {...}
 end
-
 -- 移除 --pyside 并紧凑化 argv（去掉 index 空洞）
 do
     local new_argv = {}
@@ -157,7 +150,6 @@ do
     end
     _py.argv = new_argv
 end
-
 do
     local function s_rec(v, ctx)
         local t = type(v)
@@ -219,12 +211,10 @@ do
             error('Cannot serialize type ' .. t, 0)
         end
     end
-
     _py.serialize = function(v)
         return s_rec(v, {ids = {}, next = 1})
     end
 end
-
 function _py.create_stream(s, idx)
     if idx == nil then idx = 1 end
     return {
@@ -245,7 +235,6 @@ function _py.create_stream(s, idx)
         end,
     }
 end
-
 local function deserialize_rec(stream, ctx)
     local tok = stream.fixed(1)
     if tok == 'N' then
@@ -322,17 +311,14 @@ local function deserialize_rec(stream, ctx)
         error('Unknown token ' .. tok)
     end
 end
-
 function _py.deserialize(stream)
     return deserialize_rec(stream, {building = {}, next = 1})
 end
-
 function _py.drop_task(task_id)
     _py.tasks[task_id] = nil
     _py.filters[task_id] = nil
     _py.coparams[task_id] = nil
 end
-
 -- nil-safe
 if type(table.maxn) == 'function' then
     function _py.safe_unpack(a)
@@ -347,7 +333,6 @@ else
         return table.unpack(a, 1, maxn)
     end
 end
-
 if type(http) == 'table' and type(http.websocket) == 'function' then
     function _py.start_connection()
         local ws = http.websocket(_py.url)
@@ -362,7 +347,6 @@ if type(http) == 'table' and type(http.websocket) == 'function' then
 else
     error('E003: Can\'t detect connection method')
 end
-
 function _py.ws_send(action, ...)
     local m = action
     for _, v in ipairs({...}) do
@@ -371,17 +355,14 @@ function _py.ws_send(action, ...)
     checkandwrite("send:"..m.."\n")
     _py.ws.send(m)
 end
-
 function _py.exec_python_directive(dstring)
     checkandwrite("recv:"..dstring.."\n")
     local msg = _py.create_stream(dstring)
     local action = msg.fixed(1)
-
     if action == 'T' or action == 'I' then  -- new task
         local task_id = _py.deserialize(msg)
         local code = _py.deserialize(msg)
         local params = _py.deserialize(msg)
-
         local fn, err = _py.loadmethod(code)
         if fn == nil then
             -- couldn't compile
@@ -465,8 +446,6 @@ function _py.resume_coros(event, p1, p2, p3, p4, p5)
         end
     end
 end
-
-
     function _py.start_program(name)
         local path = fs.combine(shell.dir(), name)
         if not fs.exists(path) then return nil end
@@ -476,8 +455,6 @@ end
         f.close()
         return path, code
     end
-
-
 _py.start_connection()
 do
     local path, code = nil, nil
