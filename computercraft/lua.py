@@ -102,7 +102,12 @@ class TempObject:
 
 
 class _LuaRefMixin:
-    __slots__ = ()
+    __slots__ = ('_fid', '_closed', '_str_cache')
+
+    def __init__(self, fid: int):
+        self._fid = fid
+        self._closed = False
+        self._str_cache = None
 
     def close(self):
         if self._closed:
@@ -127,13 +132,32 @@ class _LuaRefMixin:
     def __exit__(self, *exc):
         self.close()
 
+    def _fetch_str(self):
+        if self._closed:
+            return '{}(closed)'.format(type(self).__name__)
+        try:
+            from .sess import (
+                eval_lua, get_current_session, get_current_greenlet,
+            )
+            sess = get_current_session()
+            if get_current_greenlet() is sess._server_greenlet:
+                return '{}({})'.format(type(self).__name__, self._fid)
+            return eval_lua(
+                b'return tostring(_py.luaobjs[...])', self._fid,
+            ).take_decoded()
+        except Exception:
+            return '{}({})'.format(type(self).__name__, self._fid)
+
+    def __repr__(self):
+        return '{}({})'.format(type(self).__name__, self._fid)
+
+    def __str__(self):
+        if self._str_cache is None:
+            self._str_cache = self._fetch_str()
+        return self._str_cache
 
 class LuaFunction(_LuaRefMixin):
-    __slots__ = ('_fid', '_closed')
-    def __init__(self, fid: int):
-        self._fid = fid
-        self._closed = False
-
+    __slots__ = ()
     @classmethod
     def from_code(cls, code):
         """用一段 Lua 源码构造 LuaFunction。
@@ -187,17 +211,7 @@ class LuaFunction(_LuaRefMixin):
 
 
 class LuaThread(_LuaRefMixin):
-    __slots__ = ('_fid', '_closed')
-
-    def __init__(self, fid: int):
-        self._fid = fid
-        self._closed = False
-
-    def __repr__(self):
-        return 'LuaThread({})'.format(self._fid)
-
-    def __str__(self):
-        return 'thread: 0x{:x}'.format(self._fid)
+    __slots__ = ()
 
 
 _OBJ_GET = (
@@ -223,22 +237,13 @@ _OBJ_CALL = (
 
 
 class LuaObject(_LuaRefMixin):
-    __slots__ = ('_fid', '_closed')
-
-    def __init__(self, fid: int):
-        self._fid = fid
-        self._closed = False
-
-    def __repr__(self):
-        return 'LuaObject({})'.format(self._fid)
+    __slots__ = ()
 
     def _check(self):
         if self._closed:
             raise RuntimeError('LuaObject is closed')
 
     def __getattr__(self, name):
-        if name.startswith('__') and name.endswith('__'):
-            raise AttributeError(name)
         self._check()
         from .sess import eval_lua
         r = _collect(eval_lua(_OBJ_GET, self._fid, name))
@@ -247,7 +252,7 @@ class LuaObject(_LuaRefMixin):
         return r
 
     def __setattr__(self, name, value):
-        if name in ('_fid', '_closed'):
+        if name in ('_fid', '_closed', '_str_cache'):
             object.__setattr__(self, name, value)
             return
         self._check()
