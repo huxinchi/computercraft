@@ -271,10 +271,23 @@ def patch_std_files():
         yield
     finally:
         sys.stdin, sys.stdout, sys.stderr = pin, pout, perr
+def release_pyfunc(fn):
+    """释放一个 Python 函数在 Lua 侧的所有代理引用。
 
+    参数是用户最初传给 eval_lua 的那个 Python 函数对象本身或者fid
+    """
+    if isinstance(fn,int):
+        sess._pyfuncs.pop(fid, None)
+        sess._pending_pyfunc_free.add(fid)
+    else:
+        sess = get_current_session()
+        fids = [fid for fid, obj in sess._pyfuncs.items() if obj is fn]
+        for fid in fids:
+           sess._pyfuncs.pop(fid, None)
+           sess._pending_pyfunc_free.add(fid)
 def eval_lua(lua_code, *params, immediate=False,nopyobj=None):
     sess = get_current_session()
-    sess._flush_pending_luaobjs()
+    sess._flush_pending_refs()
     assert isinstance(lua_code, bytes)
     request = (
         (b'I' if immediate else b'T')
@@ -486,6 +499,7 @@ class CCSession:
         self._tid_allocator = map(base36, count(start=1))
         self._sender = sender
         self._pending_luaobj_free = set()
+        self._pending_pyfunc_free = set()
         self._enc = ser._CC_ENC
         self._greenlets = {}
         self._pyfuncs = {}
@@ -499,14 +513,16 @@ class CCSession:
             default_maxlen=self.EVENT_QUEUE_MAXLEN,
         )
         self._new_greenlets = []
-    def _flush_pending_luaobjs(self):
-        if not self._pending_luaobj_free:
+    def _flush_pending_refs(self):
+        if not self._pending_luaobj_free and not self._pending_pyfunc_free:
             return
-        ids = sorted(self._pending_luaobj_free)
+        payload = {
+            b'luaobjs': sorted(self._pending_luaobj_free),
+            b'pyfuncs': sorted(self._pending_pyfunc_free),
+        }
         self._pending_luaobj_free.clear()
-        self._sender(b'F' + b''.join(
-            ser.serialize(i, self._enc) for i in ids
-        ))
+        self._pending_pyfunc_free.clear()
+        self._sender(b'F' + ser.serialize(payload, self._enc))
     def on_task_result(self, task_id, result):
         assert get_current_greenlet() is self._server_greenlet
         if task_id not in self._greenlets:
@@ -580,8 +596,7 @@ class CCSession:
         return fid
 
 
-    def release_pyobj(self, fid):
-        self._pyfuncs.pop(fid, None)
+    
     def on_pyobj_call(self, call_id, fid, op, args):
         obj = self._pyfuncs.get(fid)
         if obj is None:

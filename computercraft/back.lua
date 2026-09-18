@@ -394,10 +394,24 @@ function _py.exec_python_directive(dstring)
                 _py.coparams[task_id] = params
             end
         end
-    elseif action == 'F' then  -- free lua object refs
-         while not msg.isend() do
-             _py.luaobjs[_py.deserialize(msg)] = nil
-         end
+    elseif action == 'F' then  -- free refs
+        local spec = _py.deserialize(msg)
+        if spec.luaobjs then
+            for _, id in ipairs(spec.luaobjs) do
+                _py.luaobjs[id] = nil
+            end
+        end
+        if spec.pyfuncs then
+            local idset = {}
+            for _, fid in ipairs(spec.pyfuncs) do
+                idset[fid] = true
+            end
+            for fn, id in pairs(_py.pyfunc_reverse) do
+                if idset[id] then
+                    _py.pyfunc_reverse[fn] = nil
+                end
+            end
+        end
     elseif action == 'D' then  -- drop tasks
         while not msg.isend() do
             _py.drop_task(_py.deserialize(msg))

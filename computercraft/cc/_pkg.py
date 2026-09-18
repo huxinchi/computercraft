@@ -5,7 +5,7 @@ from typing import Any, List, Optional
 from .. import ser
 from ..errors import LuaException
 from ..lua import LuaNum,LuaFunction,LuaObject,LuaThread
-from ..sess import eval_lua,register_route, unregister_route, list_routes
+from ..sess import eval_lua,register_route, unregister_route, list_routes,release_pyfunc
 
 __all__ = (
     'import_file',
@@ -26,6 +26,7 @@ __all__ = (
     'list_routes',
     'LuaObject',
     'LuaThread',
+    'release_pyfunc',
 )
 
 
