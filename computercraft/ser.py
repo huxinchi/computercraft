@@ -23,7 +23,10 @@ def cc_dirty_encode(s: str) -> bytes:
     return s.encode(_CC_ENC, errors='replace')
 
 
-def serialize(v, encoding, session=None,nopyobj=None):
+def serialize(v, encoding, session=None, nopyobj=None, _ctx=None):
+    if _ctx is None:
+        _ctx = {'ids': {}, 'next': 1}
+
     if v is None:
         return b'N'
     if v is False:
@@ -35,23 +38,42 @@ def serialize(v, encoding, session=None,nopyobj=None):
     if isinstance(v, bytes):
         return '<{}>'.format(len(v)).encode('ascii') + v
     if isinstance(v, UUID):
-        return serialize(str(v).encode('ascii'), encoding, session)
+        return serialize(str(v).encode('ascii'), encoding, session,
+                         nopyobj, _ctx)
     if isinstance(v, str):
-        return serialize(v.encode(encoding), encoding, session)
+        return serialize(v.encode(encoding), encoding, session,
+                         nopyobj, _ctx)
+
     if isinstance(v, (list, tuple)):
+        vid = id(v)
+        existing = _ctx['ids'].get(vid)
+        if existing is not None:
+            return b'R[' + str(existing).encode('ascii') + b']'
+        my_id = _ctx['next']
+        _ctx['next'] = my_id + 1
+        _ctx['ids'][vid] = my_id
         items = []
         for k, x in enumerate(v, start=1):
             items.append(
-                b':' + serialize(k, encoding, session,nopyobj=nopyobj)
-                + serialize(x, encoding, session,nopyobj=nopyobj))
+                b':' + serialize(k, encoding, session, nopyobj, _ctx)
+                + serialize(x, encoding, session, nopyobj, _ctx))
         return b'{' + b''.join(items) + b'}'
+
     if isinstance(v, dict):
+        vid = id(v)
+        existing = _ctx['ids'].get(vid)
+        if existing is not None:
+            return b'R[' + str(existing).encode('ascii') + b']'
+        my_id = _ctx['next']
+        _ctx['next'] = my_id + 1
+        _ctx['ids'][vid] = my_id
         items = []
         for k, x in v.items():
             items.append(
-                b':' + serialize(k, encoding, session,nopyobj=nopyobj)
-                + serialize(x, encoding, session,nopyobj=nopyobj))
+                b':' + serialize(k, encoding, session, nopyobj, _ctx)
+                + serialize(x, encoding, session, nopyobj, _ctx))
         return b'{' + b''.join(items) + b'}'
+
     if isinstance(v, lua.LuaFunction):
         return b'K[' + str(v._fid).encode('ascii') + b']'
     if isinstance(v, lua.LuaThread):
@@ -63,10 +85,12 @@ def serialize(v, encoding, session=None,nopyobj=None):
         return 'E{}>'.format(len(code)).encode('ascii') + code
     if isinstance(v, lua.TempObject):
         return 'X{}>'.format(len(v._fid)).encode('ascii') + v._fid
+
     if nopyobj is not None:
         raise TypeError(
             "{}: Python callable/object not allowed here".format(nopyobj)
         )
+
     if session is None:
         from .sess import get_current_session
         session = get_current_session()
@@ -76,16 +100,18 @@ def serialize(v, encoding, session=None,nopyobj=None):
         return b'P[' + str(fid).encode('ascii') + b']'
     fid = session.register_pyobj(v)
     mt = lua.make_mt_spec(v)
-    payload = serialize({b'fid': fid, b'mt': mt}, encoding, session)
+    payload = serialize({b'fid': fid, b'mt': mt},
+                        encoding, session, _ctx=_ctx)
     return b'I' + payload
 
-    # 不可序列化
-    #raise ValueError('Value can\'t be serialized: {}'.format(repr(v)))
 
+def _deserialize(b: bytes, _idx: int, _ctx=None):
+    if _ctx is None:
+        _ctx = {'building': {}, 'next': 1}
 
-def _deserialize(b: bytes, _idx: int):
     tok = b[_idx]
     _idx += 1
+
     if tok == 78:  # N
         return None, _idx
     elif tok == 75:  # K
@@ -100,7 +126,15 @@ def _deserialize(b: bytes, _idx: int):
         newidx = b.index(b']', _idx)
         fid = int(b[_idx + 1:newidx])
         return lua.LuaObject(fid), newidx + 1
-    elif tok == 80:  # P — Python function proxy, returned
+    elif tok == 82:  # R
+        newidx = b.index(b']', _idx)
+        ref = int(b[_idx + 1:newidx])
+        _idx = newidx + 1
+        obj = _ctx['building'].get(ref)
+        if obj is None:
+            raise ValueError('R[{}]: invalid ref'.format(ref))
+        return obj, _idx
+    elif tok == 80:  # P
         newidx = b.index(b']', _idx)
         fid = int(b[_idx + 1:newidx])
         _idx = newidx + 1
@@ -110,7 +144,7 @@ def _deserialize(b: bytes, _idx: int):
         except (RuntimeError, KeyError):
             return lua.LuaFunction(fid), _idx
     elif tok == 73:  # I
-        payload, _idx = _deserialize(b, _idx)
+        payload, _idx = _deserialize(b, _idx, _ctx)
         fid = payload[b'fid']
         try:
             from .sess import get_current_session
@@ -132,14 +166,17 @@ def _deserialize(b: bytes, _idx: int):
         ln = int(b[_idx:newidx])
         return b[newidx + 1:newidx + 1 + ln], newidx + 1 + ln
     elif tok == 123:  # {
+        ref = _ctx['next']
+        _ctx['next'] = ref + 1
         r = {}
+        _ctx['building'][ref] = r
         while True:
             tok = b[_idx]
             _idx += 1
             if tok == 125:  # }
                 break
-            key, _idx = _deserialize(b, _idx)
-            value, _idx = _deserialize(b, _idx)
+            key, _idx = _deserialize(b, _idx, _ctx)
+            value, _idx = _deserialize(b, _idx, _ctx)
             r[key] = value
         return r, _idx
     else:

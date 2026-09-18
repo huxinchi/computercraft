@@ -17,16 +17,27 @@ def lua_table_to_list(x, length: Optional[int] = None, low_index: int = 1):
     return [x.get(i + low_index) for i in range(length)]
 
 
-def _decode_rec(enc, d):
+def _decode_rec(enc, d, _memo=None):
+    if _memo is None:
+        _memo = {}
     if isinstance(d, bytes):
         return d.decode(enc)
     if isinstance(d, dict):
-        return {
-            _decode_rec(enc, k): _decode_rec(enc, v)
-            for k, v in d.items()
-        }
+        if id(d) in _memo:
+            return _memo[id(d)]
+        r = {}
+        _memo[id(d)] = r
+        for k, v in d.items():
+            r[_decode_rec(enc, k, _memo)] = _decode_rec(enc, v, _memo)
+        return r
     if isinstance(d, list):
-        return [_decode_rec(enc, v) for v in d]
+        if id(d) in _memo:
+            return _memo[id(d)]
+        r = []
+        _memo[id(d)] = r
+        for v in d:
+            r.append(_decode_rec(enc, v, _memo))
+        return r
     return d
 
 

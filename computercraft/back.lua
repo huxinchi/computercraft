@@ -159,12 +159,18 @@ do
 end
 
 do
-    local function s_rec(v, tracking)
+    local function s_rec(v, ctx)
         local t = type(v)
         if v == nil then
             return 'N'
         elseif v == false then
             return 'F'
+        elseif v == true then
+            return 'T'
+        elseif t == 'number' then
+            return '[' .. tostring(v) .. ']'
+        elseif t == 'string' then
+            return string.format('<%u>', #v) .. v
         elseif t == 'function' then
             local orig = _py.pyfunc_reverse[v]
             if orig then
@@ -175,46 +181,48 @@ do
             _py.luaobjs[id] = v
             return 'K[' .. id .. ']'
         elseif t == 'thread' then
-           local id = _py.next_luaobjid
-           _py.next_luaobjid = id + 1
-           _py.luaobjs[id] = v
-           return 'Y[' .. id .. ']'
+            local id = _py.next_luaobjid
+            _py.next_luaobjid = id + 1
+            _py.luaobjs[id] = v
+            return 'Y[' .. id .. ']'
         elseif t == 'userdata' then
-           local id = _py.next_luaobjid
-           _py.next_luaobjid = id + 1
-           _py.luaobjs[id] = v
-          return 'O[' .. id .. ']'
-        elseif v == true then
-            return 'T'
-        elseif t == 'number' then
-            return '[' .. tostring(v) .. ']'
-        elseif t == 'string' then
-            return string.format('<%u>', #v) .. v
+            local id = _py.next_luaobjid
+            _py.next_luaobjid = id + 1
+            _py.luaobjs[id] = v
+            return 'O[' .. id .. ']'
         elseif t == 'table' then
             local mt = getmetatable(v)
             if mt and mt.__cc_pyobj_id then
-               return 'I' .. _py.serialize({fid = mt.__cc_pyobj_id, keys = {}})
+                return 'I' .. _py.serialize(
+                    {fid = mt.__cc_pyobj_id, keys = {}})
             end
             if mt ~= nil then
-               local id = _py.next_luaobjid
-               _py.next_luaobjid = id + 1
-               _py.luaobjs[id] = v
-               return 'O[' .. id .. ']'
+                local id = _py.next_luaobjid
+                _py.next_luaobjid = id + 1
+                _py.luaobjs[id] = v
+                return 'O[' .. id .. ']'
             end
-            if tracking[v] ~= nil then
-                error('Cannot serialize table with recursive entries', 0)
+            -- 无 metatable → 检查是否已经展开过
+            local existing = ctx.ids[v]
+            if existing then
+                return 'R[' .. existing .. ']'
             end
-            tracking[v] = true
+            local my_id = ctx.next
+            ctx.next = my_id + 1
+            ctx.ids[v] = my_id
             local r = '{'
             for k, x in pairs(v) do
-                r = r .. ':' .. s_rec(k, tracking) .. s_rec(x, tracking)
+                r = r .. ':' .. s_rec(k, ctx) .. s_rec(x, ctx)
             end
             return r .. '}'
         else
             error('Cannot serialize type ' .. t, 0)
         end
     end
-    _py.serialize = function(v) return s_rec(v, {}) end
+
+    _py.serialize = function(v)
+        return s_rec(v, {ids = {}, next = 1})
+    end
 end
 
 function _py.create_stream(s, idx)
@@ -238,7 +246,7 @@ function _py.create_stream(s, idx)
     }
 end
 
-function _py.deserialize(stream)
+local function deserialize_rec(stream, ctx)
     local tok = stream.fixed(1)
     if tok == 'N' then
         return nil
@@ -254,6 +262,14 @@ function _py.deserialize(stream)
         stream.fixed(1)
         local id = tonumber(stream.tostop(']'))
         return _py.luaobjs[id]
+    elseif tok == 'R' then
+        stream.fixed(1)
+        local ref = tonumber(stream.tostop(']'))
+        local obj = ctx.building[ref]
+        if obj == nil then
+            error('R[' .. ref .. ']: invalid ref')
+        end
+        return obj
     elseif tok == 'F' then
         return false
     elseif tok == 'T' then
@@ -264,7 +280,6 @@ function _py.deserialize(stream)
         local slen = tonumber(stream.tostop('>'))
         return stream.fixed(slen)
     elseif tok == 'E' then
-        -- same as string (<), but intended for evaluation
         local slen = tonumber(stream.tostop('>'))
         local fn = assert(_py.loadstring(stream.fixed(slen)))
         return fn()
@@ -273,34 +288,43 @@ function _py.deserialize(stream)
         local key = stream.fixed(slen)
         return _py.temp[key]
     elseif tok == '{' then
+        local ref = ctx.next
+        ctx.next = ref + 1
         local r = {}
+        ctx.building[ref] = r
         while true do
             tok = stream.fixed(1)
             if tok == ':' then
-                local key = _py.deserialize(stream)
-                r[key] = _py.deserialize(stream)
-            else break end
+                local key = deserialize_rec(stream, ctx)
+                r[key] = deserialize_rec(stream, ctx)
+            else
+                break
+            end
         end
         return r
     elseif tok == 'P' then
         stream.fixed(1)
         local fid = tonumber(stream.tostop(']'))
         local fn = function(...)
-        return coroutine.yield({
-            __pyop__ = fid,
-            op = 'call',
-            args = {...},
-        })
+            return coroutine.yield({
+                __pyop__ = fid,
+                op = 'call',
+                args = {...},
+            })
         end
         _py.pyfunc_reverse[fn] = fid
         return fn
     elseif tok == 'I' then
-        local spec = _py.deserialize(stream)
+        local spec = deserialize_rec(stream, ctx)
         spec.mt.__cc_pyobj_id = spec.fid
         return setmetatable({_fid = spec.fid}, spec.mt)
     else
         error('Unknown token ' .. tok)
     end
+end
+
+function _py.deserialize(stream)
+    return deserialize_rec(stream, {building = {}, next = 1})
 end
 
 function _py.drop_task(task_id)
