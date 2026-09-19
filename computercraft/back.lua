@@ -16,6 +16,18 @@ local _py = {
     pyfunc_reverse = {},
     pyside=false
 }
+if type(getfenv) == 'function' then
+    _py.genv = getfenv(1)
+elseif type(_G) == 'table' then
+    _py.genv = _G 
+elseif type(_ENV) == 'table' then
+    _py.genv = _ENV
+else
+    error('E001: Can\'t get environment')
+end
+_py.genv.temp = _py.temp
+_py.genv._m = _py.modules
+_py.genv.__py__ = _py
 log=fs.open("log.log","w")
 if log == nil then 
   error("not can open log file")
@@ -31,16 +43,8 @@ function checkandwrite(str)
   log.write(str)
   log.flush()
 end
-if type(_G) == 'table' then
-    _py.genv = _G 
-elseif type(_ENV) == 'table' then
-    _py.genv = _ENV
-else
-    error('E001: Can\'t get environment')
-end
-_py.genv.temp = _py.temp
-_py.genv._m = _py.modules
-_py.genv.__py__ = _py
+
+
 if type(loadstring) == 'function' then
     -- 5.1: prefer loadstring
     function _py.loadstring(source)
