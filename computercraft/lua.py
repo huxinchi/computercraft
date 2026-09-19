@@ -63,6 +63,11 @@ def make_mt_spec(obj):
         if _has_dunder(t, dunder):
             mt[mt_key] = _make_handler(obj, dunder)
     return mt
+def _collect_all(rp):
+    values = []
+    while not rp.isend():
+        values.append(rp.take_decoded())
+    return values
 def _collect(rp):
     values = []
     while not rp.isend():
@@ -211,7 +216,10 @@ class LuaObject(_LuaRefMixin):
     def __getitem__(self, key):
         self._check()
         from .sess import eval_lua
-        return _collect(eval_lua(_OBJ_GET, self._fid, key))
+        r = _collect(eval_lua(_OBJ_GET, self._fid, key))
+        if r is None:
+            raise KeyError(key)
+        return r
     def __setitem__(self, key, value):
         self._check()
         from .sess import eval_lua
@@ -240,6 +248,30 @@ class LuaObject(_LuaRefMixin):
             b'return ' + op + b'a end)(...)',
             self._fid,
         ))
+    def __iter__(self):
+        # 让 Lua 侧调 pairs(self)，拿三元组
+        from .sess import eval_lua
+        rp = eval_lua(b'''
+            local o = __py__.luaobjs[...]
+            local f, s, c = pairs(o)
+            return f, s, c
+        ''', self._fid)
+        iter_fn = rp.take_decoded()
+        state = rp.take_decoded()
+        ctrl = rp.take_decoded()
+        while True:
+            rp = eval_lua(b'''
+                local f, s, c = ...
+                return f(s, c)
+            ''', iter_fn, state, ctrl)
+            values = _collect_all(rp)
+            if not values or values[0] is None:
+                return
+            ctrl = values[0]
+            if len(values) == 1:
+                yield values[0]
+            else:
+                yield tuple(values)
     def __add__(self, other): return self._binop(other, b'+')
     def __sub__(self, other): return self._binop(other, b'-')
     def __mul__(self, other): return self._binop(other, b'*')
