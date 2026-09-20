@@ -45,6 +45,26 @@ def _setattr_handler(obj):
     def handler(_, k, v):
         setattr(obj, k, v)
     return handler
+def _make_pairs_handler(obj):
+    it = iter(obj)
+
+    def wrap():
+        try:
+            return next(it)
+        except StopIteration:
+            return None
+
+    from .sess import eval_lua
+    return eval_lua(
+        b'local wrap = ...\n'
+        b'return function(self)\n'
+        b'    local function iter(_, _) return wrap() end\n'
+        b'    return iter, self, nil\n'
+        b'end',
+        wrap,
+    ).take_decoded()
+
+    return handler
 def _has_dunder(t, name):
     """t 是否"自己"定义了 dunder（不含 object 的默认实现）。"""
     for klass in t.__mro__:
@@ -62,6 +82,8 @@ def make_mt_spec(obj):
     for dunder, mt_key in DUNDER_TO_MT.items():
         if _has_dunder(t, dunder):
             mt[mt_key] = _make_handler(obj, dunder)
+    if _has_dunder(t, '__iter__') or _has_dunder(t, '__getitem__'):
+        mt['__pairs'] = _make_pairs_handler(obj)
     return mt
 def _collect_all(rp):
     values = []
@@ -272,6 +294,18 @@ class LuaObject(_LuaRefMixin):
                 yield values[0]
             else:
                 yield tuple(values)
+    def __contains__(self, key):
+        self._check()
+        return _collect(eval_lua(
+            b'return __py__.luaobjs[...][...] ~= nil',
+            self._fid, key,
+        ))
+    def __bool__(self):
+        self._check()
+        return _collect(eval_lua(
+            b'return not not __py__.luaobjs[...]',
+            self._fid,
+        ))
     def __add__(self, other): return self._binop(other, b'+')
     def __sub__(self, other): return self._binop(other, b'-')
     def __mul__(self, other): return self._binop(other, b'*')
@@ -285,3 +319,17 @@ class LuaObject(_LuaRefMixin):
     def __len__(self): return self._unop(b'#')
     def __hash__(self):
         return hash(('LuaObject', self._fid))
+    def __gt__(self, other): return self._binop(other, b'>')
+    def __ge__(self, other): return self._binop(other, b'>=')
+    def __radd__(self, other):
+        return _collect(eval_lua(b'return ... + __py__.luaobjs[...]', other, self._fid))
+    def __rsub__(self, other):
+        return _collect(eval_lua(b'return ... - __py__.luaobjs[...]', other, self._fid))
+    def __rmul__(self, other):
+        return _collect(eval_lua(b'return ... * __py__.luaobjs[...]', other, self._fid))
+    def __rtruediv__(self, other):
+        return _collect(eval_lua(b'return ... / __py__.luaobjs[...]', other, self._fid))
+    def __rmod__(self, other):
+        return _collect(eval_lua(b'return ... % __py__.luaobjs[...]', other, self._fid))
+    def __rpow__(self, other):
+        return _collect(eval_lua(b'return ... ^ __py__.luaobjs[...]', other, self._fid))

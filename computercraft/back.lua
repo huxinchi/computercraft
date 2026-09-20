@@ -425,7 +425,6 @@ function _py.exec_python_directive(dstring)
             if ok then
                 r = {coroutine.resume(_py.tasks[task_id], result)}
             else
-                -- 失败：把 nil, err 传给用户代码，由用户决定处理
                 r = {coroutine.resume(_py.tasks[task_id], nil, result)}
             end
             _py.handle_coro_result(task_id, r)
