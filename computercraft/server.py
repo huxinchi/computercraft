@@ -42,8 +42,6 @@ def protocol(send, sess_cls=sess.CCSession):
     except StopIteration:
         pass
     if pyside:
-        # pyside：从 Python 本地读文件
-        # args[0] 是 CC:T 的程序名（back），args[1] 是用户程序名
         if len(args) < 2:
             send(b'C' + ser.serialize(b'pyside: no program name', 'ascii'))
             return
@@ -78,51 +76,11 @@ def protocol(send, sess_cls=sess.CCSession):
         elif action == b'P':
             call_id = next(msg)
             spec = rproc._decode_rec(sess._enc, next(msg))
-            # spec 的 key/value 都被解码，spec['fid'] 是 int，spec['op'] 是 str
             args = lua_table_to_list(spec['args'])
-            sess.on_pyobj_call(call_id, spec['fid'], spec['op'], args)
+            sess.on_pyobj_call(call_id, spec['fid'], args)
         else:
             send(PROTO_ERROR)
             return
-class CCApplication(web.Application):
-    async def ws(self, request):
-        ws = web.WebSocketResponse()
-        await ws.prepare(request)
-        squeue = []
-        pgen = self['protocol_factory'](squeue.append)
-        next(pgen)
-        mustquit = False
-        async for msg in ws:
-            if msg.type != WSMsgType.BINARY:
-                continue
-            try:
-                pgen.send(msg.data)
-            except StopIteration:
-                mustquit = True
-            for m in squeue:
-                await ws.send_bytes(m)
-            squeue.clear()
-            if mustquit:
-                break
-        if not mustquit:  # sudden disconnect
-            try:
-                pgen.send(b'D')
-            except StopIteration:
-                pass
-        return ws
-    @staticmethod
-    def backdoor(request):
-        with open(LUA_FILE, 'r') as f:
-            fcont = f.read()
-        webhost = '{}:{}'.format(request.url.host, request.url.port or request.app['port'])
-        return web.Response(text=(
-            fcont
-            .replace('__url__', 'ws://{}/ws/'.format(webhost))
-            .replace('__password__', setpassword)
-        ))
-    def setup_routes(self):
-        self.router.add_get('/', self.backdoor)
-        self.router.add_get('/ws/', self.ws)
 def create_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--host', default='0.0.0.0')
@@ -136,14 +94,49 @@ def create_parser():
         '--password', type=str, default="def password",
         help='setting password')
     return parser
+async def ws(request):
+    ws = web.WebSocketResponse()
+    await ws.prepare(request)
+    squeue = []
+    pgen = request.app['protocol_factory'](squeue.append)
+    next(pgen)
+    mustquit = False
+    async for msg in ws:
+        if msg.type != WSMsgType.BINARY:
+            continue
+        try:
+            pgen.send(msg.data)
+        except StopIteration:
+            mustquit = True
+        for m in squeue:
+            await ws.send_bytes(m)
+        squeue.clear()
+        if mustquit:
+            break
+    if not mustquit:  # sudden disconnect
+        try:
+            pgen.send(b'D')
+        except StopIteration:
+            pass
+    return ws
+def backdoor(request):
+    with open(LUA_FILE, 'r') as f:
+         fcont = f.read()
+    webhost = '{}:{}'.format(request.url.host, request.url.port or request.app['port'])
+    return web.Response(text=(
+        fcont
+        .replace('__url__', 'ws://{}/ws/'.format(webhost))
+        .replace('__password__', setpassword)
+    ))
 def main():
     global setpassword
     args = create_parser().parse_args()
-    app = CCApplication()
+    app = web.Application()
     app['port'] = args.port
     app['protocol_factory'] = protocol
     setpassword=args.password
-    app.setup_routes()
+    app.router.add_get('/', backdoor)
+    app.router.add_get('/ws/', ws)
     async def capture(app):
         with open(args.capture, 'wb') as f:
             def protocol_factory(send, sess_cls=sess.CCSession):

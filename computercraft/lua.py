@@ -1,7 +1,6 @@
 from typing import Union
 LuaTable = Union[list, dict]
 LuaNum = Union[int, float]
-import types
 DUNDER_TO_MT = {
     '__call__':    '__call',
     '__str__':     '__tostring',
@@ -16,22 +15,7 @@ DUNDER_TO_MT = {
     '__mod__':     '__mod',
     '__pow__':     '__pow',
     '__neg__':     '__unm',
-    '__and__':     '__band',
-    '__or__':      '__bor',
-    '__xor__':     '__bxor',
-    '__lshift__':  '__shl',
-    '__rshift__':  '__shr',
-    '__invert__':  '__bnot',
 }
-_FUNCTION_TYPES = (
-    types.FunctionType,
-    types.LambdaType,
-    types.BuiltinFunctionType,
-    types.MethodType,
-    types.BuiltinMethodType,
-)
-def is_function(v):
-    return isinstance(v, _FUNCTION_TYPES)
 def _make_handler(obj, dunder):
     method = getattr(obj, dunder)
     def handler(_, *args):
@@ -65,14 +49,6 @@ def _make_pairs_handler(obj):
     ).take_decoded()
 
     return handler
-def _has_dunder(t, name):
-    """t 是否"自己"定义了 dunder（不含 object 的默认实现）。"""
-    for klass in t.__mro__:
-        if klass is object:
-            return False
-        if name in klass.__dict__:
-            return True
-    return False
 def make_mt_spec(obj):
     t = type(obj)
     mt = {
@@ -80,9 +56,11 @@ def make_mt_spec(obj):
         '__newindex': _setattr_handler(obj),
     }
     for dunder, mt_key in DUNDER_TO_MT.items():
-        if _has_dunder(t, dunder):
-            mt[mt_key] = _make_handler(obj, dunder)
-    if _has_dunder(t, '__iter__') or _has_dunder(t, '__getitem__'):
+        method = getattr(obj, dunder, None)
+        if method is None or not callable(method):
+            continue
+        mt[mt_key] = _make_handler(obj, dunder)
+    if getattr(t, "__iter__", None) is not None or getattr(t, "__getitem__", None) is not None:
         mt['__pairs'] = _make_pairs_handler(obj)
     return mt
 def _collect_all(rp):
@@ -317,19 +295,12 @@ class LuaObject(_LuaRefMixin):
     def __le__(self, other): return self._binop(other, b'<=')
     def __neg__(self): return self._unop(b'-')
     def __len__(self): return self._unop(b'#')
-    def __hash__(self):
-        return hash(('LuaObject', self._fid))
+    def __hash__(self): return hash(('LuaObject', self._fid))
     def __gt__(self, other): return self._binop(other, b'>')
     def __ge__(self, other): return self._binop(other, b'>=')
-    def __radd__(self, other):
-        return _collect(eval_lua(b'return ... + __py__.luaobjs[...]', other, self._fid))
-    def __rsub__(self, other):
-        return _collect(eval_lua(b'return ... - __py__.luaobjs[...]', other, self._fid))
-    def __rmul__(self, other):
-        return _collect(eval_lua(b'return ... * __py__.luaobjs[...]', other, self._fid))
-    def __rtruediv__(self, other):
-        return _collect(eval_lua(b'return ... / __py__.luaobjs[...]', other, self._fid))
-    def __rmod__(self, other):
-        return _collect(eval_lua(b'return ... % __py__.luaobjs[...]', other, self._fid))
-    def __rpow__(self, other):
-        return _collect(eval_lua(b'return ... ^ __py__.luaobjs[...]', other, self._fid))
+    def __radd__(self, other): return _collect(eval_lua(b'return ... + __py__.luaobjs[...]', other, self._fid))
+    def __rsub__(self, other): return _collect(eval_lua(b'return ... - __py__.luaobjs[...]', other, self._fid))
+    def __rmul__(self, other): return _collect(eval_lua(b'return ... * __py__.luaobjs[...]', other, self._fid))
+    def __rtruediv__(self, other): return _collect(eval_lua(b'return ... / __py__.luaobjs[...]', other, self._fid))
+    def __rmod__(self, other): return _collect(eval_lua(b'return ... % __py__.luaobjs[...]', other, self._fid))
+    def __rpow__(self, other): return _collect(eval_lua(b'return ... ^ __py__.luaobjs[...]', other, self._fid))

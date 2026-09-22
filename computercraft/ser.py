@@ -1,18 +1,23 @@
 from typing import Any, Tuple,Optional
 from uuid import UUID
 from . import lua
+import types
 __all__ = (
     '_CC_ENC',
-    'cc_dirty_encode',
     'serialize',
     'deserialize',
+)
+_FUNCTION_TYPES = (
+    types.FunctionType,
+    types.LambdaType,
+    types.BuiltinFunctionType,
+    types.MethodType,
+    types.BuiltinMethodType,
 )
 _CC_ENC = 'latin1'
 # encoding fast check
 assert [bytes([i]) for i in range(256)] == [
     chr(i).encode(_CC_ENC) for i in range(256)]
-def cc_dirty_encode(s: str) -> bytes:
-    return s.encode(_CC_ENC, errors='replace')
 def serialize(
     v,
     encoding: str,
@@ -84,7 +89,7 @@ def serialize(
     if session is None:
         from .sess import get_current_session
         session = get_current_session()
-    if lua.is_function(v):
+    if isinstance(v, _FUNCTION_TYPES):
         fid = session.register_pyobj(v)
         return b'P[' + str(fid).encode('ascii') + b']'
     fid = session.register_pyobj(v)

@@ -496,15 +496,12 @@ class CCSession:
         self._next_pyfunc_id += 1
         self._pyfuncs[fid] = obj
         return fid    
-    def on_pyobj_call(self, call_id, fid, op, args):
+    def on_pyobj_call(self, call_id, fid, args):
         obj = self._pyfuncs.get(fid)
         if obj is None:
             self._reply_pyobj(call_id, False, 'stale python object ref')
             return
-        fn = _OPS.get(op)
-        if fn is None:
-            self._reply_pyobj(call_id, False, 'unsupported op: ' + op)
-            return
+        fn = lambda o, a: o(*a)
         def _runner():
             try:
                 result = fn(obj, args)
@@ -520,26 +517,3 @@ class CCSession:
             + (b'T' if ok else b'F')
             + ser.serialize(result, self._enc, session=self)
         )
-_OPS = {
-    'call':    lambda o, a: o(*a),
-    'getattr': lambda o, a: getattr(o, a[0], None),
-    'setattr': lambda o, a: setattr(o, a[0], a[1]),
-    'str':     lambda o, a: str(o),
-    'len':     lambda o, a: len(o),
-    'eq':      lambda o, a: o == a[0],
-    'lt':      lambda o, a: o < a[0],
-    'le':      lambda o, a: o <= a[0],
-    'add':     lambda o, a: o + a[0],
-    'sub':     lambda o, a: o - a[0],
-    'mul':     lambda o, a: o * a[0],
-    'div':     lambda o, a: o / a[0],
-    'mod':     lambda o, a: o % a[0],
-    'pow':     lambda o, a: o ** a[0],
-    'neg':     lambda o, a: -o,
-    'and':     lambda o, a: o & a[0],
-    'or':      lambda o, a: o | a[0],
-    'xor':     lambda o, a: o ^ a[0],
-    'shl':     lambda o, a: o << a[0],
-    'shr':     lambda o, a: o >> a[0],
-    'invert':  lambda o, a: ~o,
-}

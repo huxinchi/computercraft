@@ -301,7 +301,6 @@ local function deserialize_rec(stream, ctx)
         local fn = function(...)
             return coroutine.yield({
                 __pyop__ = fid,
-                op = 'call',
                 args = {...},
             })
         end
