@@ -1,5 +1,6 @@
 local _py = {
     url = '__url__',
+    log=__log__,
     proto_version = 5,
     event_sub = {},
     tasks = {},
@@ -28,14 +29,17 @@ end
 _py.genv.temp = _py.temp
 _py.genv._m = _py.modules
 _py.genv.__py__ = _py
-log=fs.open("log.log","w")
-if log == nil then 
-  error("not can open log file")
+if _py.log then
+  log=fs.open(_py.log,"w")
+  if log == nil then 
+    error("not can open log file")
+  end
 end
 function checkandwrite(str)
+  if not _py.log then return end
   if fs.getFreeSpace("/")<=1024 then
-    fs.delete("log.log")
-    log=fs.open("log.log","w")
+    fs.delete(_py.log)
+    log=fs.open(_py.log,"w")
     if log == nil then 
       error("not can open log file")
     end
@@ -482,4 +486,6 @@ while true do
     _py.resume_coros(event, p1, p2, p3, p4, p5)
 end
 _py.ws.close()
-log.close()
+if _py.log then
+  log.close()
+end

