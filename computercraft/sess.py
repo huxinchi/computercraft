@@ -231,14 +231,16 @@ def release_pyfunc(fn):
             sess._pyfuncs.pop(fid, None)
             sess._pending_pyfunc_free.add(fid)
 def eval_lua(
-    lua_code: bytes,
+    lua_code: bytes|str,
     *params,
     immediate: bool = False,
     nopyobj: Optional[str] = None,
 ) -> rproc.ResultProc:
     sess = get_current_session()
     sess._flush_pending_refs()
-    assert isinstance(lua_code, bytes)
+    assert isinstance(lua_code, bytes) or isinstance(lua_code, str)
+    if isinstance(lua_code, str):
+      lua_code=lua_code.encode(sess._enc,errors="replace")
     request = (
         (b'I' if immediate else b'T')
         + ser.serialize(lua_code, sess._enc, session=sess,nopyobj=nopyobj)
