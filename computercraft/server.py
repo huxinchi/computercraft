@@ -93,6 +93,9 @@ def create_parser():
     parser.add_argument(
         '--password', type=str, default="def password",
         help='setting password')
+    parser.add_argument(
+        '--disable-download',action='store_true',
+        help='disable download port')
     return parser
 async def ws(request):
     ws = web.WebSocketResponse()
@@ -137,7 +140,8 @@ def main():
     app['protocol_factory'] = protocol
     app["log"]=args.capture
     setpassword=args.password
-    app.router.add_get('/', backdoor)
+    if not args.disable_download:
+        app.router.add_get('/', backdoor)
     app.router.add_get('/ws/', ws)
     async def capture(app):
         with open(args.capture, 'wb') as f:
